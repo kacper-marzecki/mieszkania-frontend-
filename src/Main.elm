@@ -52,15 +52,11 @@ getCities =
 
 
 
--- getHomes: Settings -> Cmd Msg
--- getHomes settings =
-
-
 init : ( Model, Cmd Msg )
 init =
     ( { site = MainSite
       , menuOpen = False
-      , loading = False
+      , loading = True
       , settings =
             { city = Nothing
             , lowerPrice = 1000
@@ -84,6 +80,8 @@ type Msg
     | BurgerClicked
     | SettingsClicked
     | SetCity String
+    | SetLowerPrice String
+    | SetUpperPrice String
 
 
 toogleOpenSettings : Model -> Model
@@ -110,6 +108,50 @@ toogleOpenMenu model =
     { model | menuOpen = not model.menuOpen, settings = newSettings }
 
 
+setLowerPrice : Model -> String -> Model
+setLowerPrice model price =
+    let
+        lowerPrice =
+            Maybe.withDefault model.settings.lowerPrice (String.toInt price)
+
+        upperPrice =
+            if lowerPrice > model.settings.upperPrice then
+                lowerPrice
+
+            else
+                model.settings.upperPrice
+
+        settings =
+            model.settings
+
+        newSettings =
+            { settings | lowerPrice = lowerPrice, upperPrice = upperPrice }
+    in
+    { model | settings = newSettings }
+
+
+setUpperPrice : Model -> String -> Model
+setUpperPrice model price =
+    let
+        upperPrice =
+            Maybe.withDefault model.settings.upperPrice (String.toInt price)
+
+        lowerPrice =
+            if upperPrice < model.settings.lowerPrice then
+                upperPrice
+
+            else
+                model.settings.lowerPrice
+
+        settings =
+            model.settings
+
+        newSettings =
+            { settings | upperPrice = upperPrice, lowerPrice = lowerPrice }
+    in
+    { model | settings = newSettings }
+
+
 setCity : Model -> String -> Model
 setCity model city =
     let
@@ -126,7 +168,7 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         GotCities (Ok cities) ->
-            ( { model | cities = cities }, Cmd.none )
+            ( { model | cities = cities, loading = False }, Cmd.none )
 
         BurgerClicked ->
             ( toogleOpenMenu model, Cmd.none )
@@ -136,6 +178,12 @@ update msg model =
 
         SetCity city ->
             ( setCity model city, Cmd.none )
+
+        SetUpperPrice price ->
+            ( setUpperPrice model price, Cmd.none )
+
+        SetLowerPrice price ->
+            ( setLowerPrice model price, Cmd.none )
 
         _ ->
             ( model, Cmd.none )
@@ -148,6 +196,12 @@ update msg model =
 settingsView : Model -> Html Msg
 settingsView model =
     let
+        prices : Int -> List (Html Msg)
+        prices targetPrice =
+            List.range 4 40
+                |> List.map (\n -> 250 * n)
+                |> List.map (\n -> Html.option [ Html.Attributes.selected (targetPrice == n) ] [ text (String.fromInt n) ])
+
         options =
             List.map
                 (\c -> Html.option [] [ text c ])
@@ -158,16 +212,48 @@ settingsView model =
     in
     if model.settings.open then
         div [ class "box animated slideInDown" ]
-            [ div [ class "field is-horizontal" ]
-                [ div [ class "field-label is-normal" ] [ Html.label [ class "label" ] [ text "City" ] ]
-                , div [ class "field-body" ]
-                    [ div [ class "control" ]
-                        [ div [ class "select" ]
-                            [ Html.select [ onInput SetCity, Html.Attributes.placeholder "asd" ]
-                                withPlaceholder
+            [ div [ class "columns" ]
+                [ div [ class "column" ] []
+                , div [ class "column" ]
+                    [ div [ class "field is-horizontal " ]
+                        [ div [ class "field-body" ]
+                            [ div [ class "field has-addons" ]
+                                [ div [ class "control" ]
+                                    [ a [ class "button is-static" ] [ text "City" ]
+                                    ]
+                                , div [ class "control" ]
+                                    [ div [ class "select" ]
+                                        [ Html.select [ onInput SetCity ]
+                                            withPlaceholder
+                                        ]
+                                    ]
+                                ]
+                            , div [ class "field has-addons" ]
+                                [ div [ class "control" ]
+                                    [ a [ class "button is-static" ] [ text "Lower Price limit" ]
+                                    ]
+                                , div [ class "control" ]
+                                    [ div [ class "select" ]
+                                        [ Html.select [ onInput SetLowerPrice ]
+                                            (prices model.settings.lowerPrice)
+                                        ]
+                                    ]
+                                ]
+                            , div [ class "field has-addons" ]
+                                [ div [ class "control" ]
+                                    [ a [ class "button is-static" ] [ text "Upper price limit" ]
+                                    ]
+                                , div [ class "control" ]
+                                    [ div [ class "select" ]
+                                        [ Html.select [ onInput SetUpperPrice ]
+                                            (prices model.settings.upperPrice)
+                                        ]
+                                    ]
+                                ]
                             ]
                         ]
                     ]
+                , div [ class "column" ] []
                 ]
             ]
 
