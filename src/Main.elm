@@ -3,26 +3,9 @@ module Main exposing (..)
 import Browser
 import Html exposing (Html, a, div, h1, i, img, input, nav, text)
 import Html.Attributes exposing (class, src)
-import Html.Events exposing (onClick)
+import Html.Events exposing (onClick, onInput)
 import Http
 import Json.Decode exposing (Decoder, field, string)
-
-
-
----- MODEL ----
-
-
-getRandomCatGif : Cmd Msg
-getRandomCatGif =
-    Http.get
-        { url = "https://api.giphy.com/v1/gifs/random?api_key=dc6zaTOxFJmzC&tag=cat"
-        , expect = Http.expectJson GotGif gifDecoder
-        }
-
-
-gifDecoder : Decoder String
-gifDecoder =
-    field "data" (field "image_url" string)
 
 
 type CityId
@@ -34,8 +17,8 @@ type Site
     | CitySite CityId
 
 
-type City
-    = String
+type alias City =
+    String
 
 
 type alias Settings =
@@ -51,8 +34,26 @@ type alias Model =
     , loading : Bool
     , menuOpen : Bool
     , settings : Settings
-    , test : String
+    , cities : List String
     }
+
+
+citiesDecoder : Decoder (List String)
+citiesDecoder =
+    Json.Decode.list string
+
+
+getCities : Cmd Msg
+getCities =
+    Http.get
+        { url = "http://localhost:8081/cities"
+        , expect = Http.expectJson GotCities citiesDecoder
+        }
+
+
+
+-- getHomes: Settings -> Cmd Msg
+-- getHomes settings =
 
 
 init : ( Model, Cmd Msg )
@@ -66,9 +67,9 @@ init =
             , upperPrice = 10000
             , open = False
             }
-      , test = "asd"
+      , cities = []
       }
-    , Cmd.none
+    , Cmd.batch [ getCities ]
     )
 
 
@@ -79,10 +80,10 @@ init =
 type Msg
     = NoOp
     | GetCities
-    | GetGif
-    | GotGif (Result Http.Error String)
+    | GotCities (Result Http.Error (List String))
     | BurgerClicked
     | SettingsClicked
+    | SetCity String
 
 
 toogleOpenSettings : Model -> Model
@@ -94,19 +95,38 @@ toogleOpenSettings model =
         newSettings =
             { settings | open = not model.settings.open }
     in
-    { model | settings = newSettings }
+    { model | settings = newSettings, menuOpen = False }
 
 
 toogleOpenMenu : Model -> Model
 toogleOpenMenu model =
-    { model | menuOpen = not model.menuOpen }
+    let
+        settings =
+            model.settings
+
+        newSettings =
+            { settings | open = False }
+    in
+    { model | menuOpen = not model.menuOpen, settings = newSettings }
+
+
+setCity : Model -> String -> Model
+setCity model city =
+    let
+        settings =
+            model.settings
+
+        newSettings =
+            { settings | city = Just city }
+    in
+    { model | settings = newSettings }
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        GotGif (Ok gif) ->
-            ( { model | test = gif }, Cmd.none )
+        GotCities (Ok cities) ->
+            ( { model | cities = cities }, Cmd.none )
 
         BurgerClicked ->
             ( toogleOpenMenu model, Cmd.none )
@@ -114,8 +134,8 @@ update msg model =
         SettingsClicked ->
             ( toogleOpenSettings model, Cmd.none )
 
-        GetGif ->
-            ( model, getRandomCatGif )
+        SetCity city ->
+            ( setCity model city, Cmd.none )
 
         _ ->
             ( model, Cmd.none )
@@ -125,18 +145,26 @@ update msg model =
 ---- VIEW ----
 
 
-settingsView : Settings -> Html msg
-settingsView settingsModel =
-    if not settingsModel.open then
+settingsView : Model -> Html Msg
+settingsView model =
+    let
+        options =
+            List.map
+                (\c -> Html.option [] [ text c ])
+                model.cities
+
+        withPlaceholder =
+            [ Html.option [ Html.Attributes.disabled True, Html.Attributes.selected True ] [ text "Select City" ] ] ++ options
+    in
+    if model.settings.open then
         div [ class "box animated slideInDown" ]
             [ div [ class "field is-horizontal" ]
                 [ div [ class "field-label is-normal" ] [ Html.label [ class "label" ] [ text "City" ] ]
                 , div [ class "field-body" ]
                     [ div [ class "control" ]
                         [ div [ class "select" ]
-                            [ Html.select []
-                                [ Html.option [] [ text "DUPA" ]
-                                ]
+                            [ Html.select [ onInput SetCity, Html.Attributes.placeholder "asd" ]
+                                withPlaceholder
                             ]
                         ]
                     ]
@@ -178,7 +206,6 @@ menuBar model =
 
 progressBar : Model -> Html Msg
 progressBar model =
-    -- <progress class="progress is-small is-primary" max="100">15%</progress>
     if model.loading then
         Html.progress [ class "progress is-small is-primary" ] []
 
@@ -186,16 +213,18 @@ progressBar model =
         div [] []
 
 
+homeView : Model -> Html Msg
+homeView _ =
+    div [] []
+
+
 view : Model -> Html Msg
 view model =
     div []
         [ menuBar model
         , progressBar model
-        , settingsView model.settings
-        , img [ src "/logo.svg" ] []
-        , img [ src model.test ] []
-        , h1 [] [ text model.test ]
-        , Html.button [ onClick GetGif ] [ text "Asd" ]
+        , settingsView model
+        , homeView model
         ]
 
 
