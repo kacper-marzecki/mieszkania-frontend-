@@ -8,6 +8,25 @@ import Http
 import Json.Decode exposing (Decoder, field, string)
 
 
+
+-- UTILS
+
+
+isNothing : Maybe a -> Bool
+isNothing m =
+    case m of
+        Just _ ->
+            False
+
+        Nothing ->
+            True
+
+
+isJust : Maybe a -> Bool
+isJust m =
+    not (isNothing m)
+
+
 type CityId
     = Int
 
@@ -29,18 +48,47 @@ type alias Settings =
     }
 
 
+type alias Home =
+    { id : Int
+    , added : String
+    , link : String
+    , description : String
+    , price : Int
+    }
+
+
 type alias Model =
     { site : Site
     , loading : Bool
     , menuOpen : Bool
     , settings : Settings
     , cities : List String
+    , page : Int
+    , homesPage : Maybe (Page Home)
+    , errors : List String
     }
 
 
 citiesDecoder : Decoder (List String)
 citiesDecoder =
     Json.Decode.list string
+
+
+type alias Page a =
+    { content : List a
+    , totalPages : Int
+    , totalElements : Int
+    , number : Int
+    }
+
+
+pageDecoder : Decoder a -> Decoder (Page a)
+pageDecoder contentDecoder =
+    Json.Decode.map4 Page
+        (Json.Decode.field "content" (Json.Decode.list contentDecoder))
+        (Json.Decode.field "totalPages" Json.Decode.int)
+        (Json.Decode.field "totalElements" Json.Decode.int)
+        (Json.Decode.field "number" Json.Decode.int)
 
 
 getCities : Cmd Msg
@@ -50,6 +98,49 @@ getCities =
         , expect = Http.expectJson GotCities citiesDecoder
         }
 
+
+buildHomeUrl : Settings -> Int -> Maybe String
+buildHomeUrl settings page =
+    case settings.city of
+        Nothing ->
+            Nothing
+
+        Just city ->
+            let
+                url =
+                    "http://localhost:8081/home/"
+                        ++ city
+                        ++ "?lowerPrice="
+                        ++ String.fromInt settings.lowerPrice
+                        ++ "&upperPrice="
+                        ++ String.fromInt settings.upperPrice
+                        ++ "&page="
+                        ++ String.fromInt page
+            in
+            Just url
+
+
+homeDecoder : Decoder Home
+homeDecoder =
+    Json.Decode.map5 Home
+        (Json.Decode.field "id" Json.Decode.int)
+        (Json.Decode.field "added" Json.Decode.string)
+        (Json.Decode.field "link" Json.Decode.string)
+        (Json.Decode.field "description" Json.Decode.string)
+        (Json.Decode.field "price" Json.Decode.int)
+
+
+homesDecoder : Decoder (List Home)
+homesDecoder =
+    Json.Decode.list homeDecoder
+
+
+getHomesCmd : String -> Cmd Msg
+getHomesCmd url =
+    Http.get
+        { url = url
+        , expect = Http.expectJson GotHomes (pageDecoder homeDecoder)
+        }
 
 
 init : ( Model, Cmd Msg )
@@ -64,6 +155,9 @@ init =
             , open = False
             }
       , cities = []
+      , page = 0
+      , errors = []
+      , homesPage = Nothing
       }
     , Cmd.batch [ getCities ]
     )
@@ -77,11 +171,14 @@ type Msg
     = NoOp
     | GetCities
     | GotCities (Result Http.Error (List String))
+    | GetHomes Int
+    | GotHomes (Result Http.Error (Page Home))
     | BurgerClicked
     | SettingsClicked
     | SetCity String
     | SetLowerPrice String
     | SetUpperPrice String
+    | Error String
 
 
 toogleOpenSettings : Model -> Model
@@ -185,8 +282,24 @@ update msg model =
         SetLowerPrice price ->
             ( setLowerPrice model price, Cmd.none )
 
+        GetHomes pageNumber ->
+            case buildHomeUrl model.settings pageNumber of
+                Just url ->
+                    Debug.log url
+                        ( { model | page = pageNumber }, getHomesCmd url )
+
+                Nothing ->
+                    update (Error "Invalid search parameters") model
+
+        GotHomes (Ok homePage) ->
+            ( { model | homesPage = Just homePage }, Cmd.none )
+
+        Error err ->
+            ( { model | errors = [ err ] }, Cmd.none )
+
         _ ->
-            ( model, Cmd.none )
+            Debug.log "catch-all update"
+                ( model, Cmd.none )
 
 
 
@@ -250,6 +363,11 @@ settingsView model =
                                         ]
                                     ]
                                 ]
+                            , div [ class "field " ]
+                                [ div [ class "control" ]
+                                    [ Html.button [ class "button is-primary", onClick (GetHomes 1), Html.Attributes.disabled (isNothing model.settings.city) ] [ text "Search" ]
+                                    ]
+                                ]
                             ]
                         ]
                     ]
@@ -299,9 +417,41 @@ progressBar model =
         div [] []
 
 
-homeView : Model -> Html Msg
-homeView _ =
-    div [] []
+homeTileView : Home -> Html Msg
+homeTileView home =
+    Html.article [ class "media" ]
+        [ Html.figure [ class "media-left" ]
+            [ Html.p [ class "image is-64x64" ]
+                [ img [ src "https://bulma.io/images/placeholders/128x128.png" ] []
+                ]
+            ]
+        , div [ class "media-content" ]
+            [ Html.p [ class "is-size 3" ] [ text home.description ]
+            ]
+        ]
+
+
+pageView : Page Home -> Html Msg
+pageView page =
+    div [ class "container is-fluid" ]
+        (List.map homeTileView page.content
+            ++ [ div [ class "pagination is-rounded", Html.Attributes.attribute "role" "navigation" ]
+                    [ Html.button [ class "pagination-previous", Html.Attributes.disabled (page.number == 0), onClick (GetHomes (page.number - 1)) ] [ text "Previous" ]
+                    , Html.button [ class "pagination-next", Html.Attributes.style "margin-right" "15px", onClick (GetHomes (page.number + 1)) ] [ text "Next" ]
+                    , Html.ul [ class "pagination-list" ] []
+                    ]
+               ]
+        )
+
+
+homesView : Model -> Html Msg
+homesView model =
+    case model.homesPage of
+        Just page ->
+            pageView page
+
+        Nothing ->
+            div [] []
 
 
 view : Model -> Html Msg
@@ -310,7 +460,7 @@ view model =
         [ menuBar model
         , progressBar model
         , settingsView model
-        , homeView model
+        , homesView model
         ]
 
 
