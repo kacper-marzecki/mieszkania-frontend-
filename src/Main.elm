@@ -454,13 +454,29 @@ homesView model =
             div [] []
 
 
+footerView : Html Msg
+footerView =
+    Html.footer [ class "footer" ]
+        [ div [ class "content has-text-centered" ]
+            [ Html.p [] [ text "FubarSoft 2020" ]
+            ]
+        ]
+
+
 view : Model -> Html Msg
 view model =
-    div []
-        [ menuBar model
-        , progressBar model
-        , settingsView model
-        , homesView model
+    let
+        mainContent =
+            div [ class "main-content" ]
+                [ menuBar model
+                , progressBar model
+                , settingsView model
+                , homesView model
+                ]
+    in
+    div [ class "root" ]
+        [ mainContent
+        , footerView
         ]
 
 
