@@ -1,11 +1,22 @@
-module Main exposing (..)
+port module Main exposing (..)
 
 import Browser
 import Html exposing (Html, a, div, h1, i, img, input, nav, text)
-import Html.Attributes exposing (class, src)
+import Html.Attributes exposing (attribute, class, src, title)
 import Html.Events exposing (onClick, onInput)
 import Http
 import Json.Decode exposing (Decoder, field, string)
+import Json.Encode as E
+
+
+
+-- PORTS
+
+
+port copyToClipboard : E.Value -> Cmd msg
+
+
+port favouriteHome : E.Value -> Cmd msg
 
 
 
@@ -66,6 +77,7 @@ type alias Model =
     , page : Int
     , homesPage : Maybe (Page Home)
     , errors : List String
+    , shareApiEnabled : Bool
     }
 
 
@@ -143,8 +155,8 @@ getHomesCmd url =
         }
 
 
-init : ( Model, Cmd Msg )
-init =
+init : { shareApiEnabled : Bool } -> ( Model, Cmd Msg )
+init flags =
     ( { site = MainSite
       , menuOpen = False
       , loading = True
@@ -158,6 +170,7 @@ init =
       , page = 0
       , errors = []
       , homesPage = Nothing
+      , shareApiEnabled = flags.shareApiEnabled
       }
     , Cmd.batch [ getCities ]
     )
@@ -178,6 +191,8 @@ type Msg
     | SetCity String
     | SetLowerPrice String
     | SetUpperPrice String
+    | CopyToClipboard String
+    | FavouriteHome Int
     | Error String
 
 
@@ -264,6 +279,9 @@ setCity model city =
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
+        CopyToClipboard string ->
+            ( model, copyToClipboard (E.string string) )
+
         GotCities (Ok cities) ->
             ( { model | cities = cities, loading = False }, Cmd.none )
 
@@ -293,6 +311,9 @@ update msg model =
 
         GotHomes (Ok homePage) ->
             ( { model | homesPage = Just homePage }, Cmd.none )
+
+        FavouriteHome id ->
+            ( model, favouriteHome (E.int id) )
 
         Error err ->
             ( { model | errors = [ err ] }, Cmd.none )
@@ -417,8 +438,8 @@ progressBar model =
         div [] []
 
 
-homeTileView : Home -> Html Msg
-homeTileView home =
+homeTileView : Bool -> Home -> Html Msg
+homeTileView isShareApiEnabled home =
     let
         imgUrl =
             if String.contains "gumtree" home.link then
@@ -429,6 +450,13 @@ homeTileView home =
 
             else
                 "/olx.png"
+
+        ( shareTitle, shareAction ) =
+            if isShareApiEnabled then
+                ( "ShareApiEnabled", CopyToClipboard home.link )
+
+            else
+                ( "ShareApiDisabled", CopyToClipboard home.link )
     in
     Html.article [ class "media" ]
         [ Html.figure [ class "media-left" ]
@@ -442,13 +470,13 @@ homeTileView home =
                 ]
             , Html.nav [ class "level is-mobile" ]
                 [ div [ class "level-right" ]
-                    [ a [ class "level-item" ]
-                        [ Html.span [ class "icon is-small has-text-primary " ]
+                    [ a [ class "level-item", onClick shareAction ]
+                        [ Html.span [ class "icon is-small has-text-primary", title shareTitle ]
                             [ i [ class "fas fa-share" ] []
                             ]
                         ]
-                    , a [ class "level-item" ]
-                        [ Html.span [ class "icon is-small has-text-primary" ]
+                    , a [ class "level-item", onClick (FavouriteHome home.id) ]
+                        [ Html.span [ class "icon is-small has-text-primary", title "Favourite" ]
                             [ i [ class "fas fa-heart" ] []
                             ]
                         ]
@@ -458,10 +486,11 @@ homeTileView home =
         ]
 
 
-pageView : Page Home -> Html Msg
-pageView page =
+homesPageView : Page Home -> Bool -> Html Msg
+homesPageView page isShareApiEnabled =
     div [ class "container is-fluid p-l-md" ]
-        (List.map homeTileView page.content
+        (List.map (homeTileView isShareApiEnabled)
+            page.content
             ++ [ div [ class "pagination is-rounded m-t-sm m-b-sm", Html.Attributes.attribute "role" "navigation" ]
                     [ Html.button [ class "pagination-previous", Html.Attributes.disabled (page.number == 0), onClick (GetHomes (page.number - 1)) ] [ text "Previous" ]
                     , Html.button [ class "pagination-next", Html.Attributes.style "margin-right" "15px", onClick (GetHomes (page.number + 1)) ] [ text "Next" ]
@@ -475,7 +504,7 @@ homesView : Model -> Html Msg
 homesView model =
     case model.homesPage of
         Just page ->
-            pageView page
+            homesPageView page model.shareApiEnabled
 
         Nothing ->
             div [] []
@@ -511,11 +540,11 @@ view model =
 ---- PROGRAM ----
 
 
-main : Program () Model Msg
+main : Program { shareApiEnabled : Bool } Model Msg
 main =
     Browser.element
         { view = view
-        , init = \_ -> init
+        , init = init
         , update = update
         , subscriptions = always Sub.none
         }
