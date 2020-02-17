@@ -324,7 +324,7 @@ settingsView model =
             [ Html.option [ Html.Attributes.disabled True, Html.Attributes.selected True ] [ text "Select City" ] ] ++ options
     in
     if model.settings.open then
-        div [ class "box animated slideInDown" ]
+        div [ class "box animated fadeIn" ]
             [ div [ class "columns" ]
                 [ div [ class "column" ] []
                 , div [ class "column" ]
@@ -381,7 +381,7 @@ settingsView model =
 
 menuBar : Model -> Html Msg
 menuBar model =
-    nav [ class "navbar" ]
+    nav [ class "navbar is-primary m-b-md" ]
         [ div [ class "navbar-brand" ]
             [ Html.a [ class "navbar-item", Html.Attributes.href "#" ]
                 [ i [ class "fas fa-home" ] []
@@ -397,7 +397,7 @@ menuBar model =
                 ]
                 [ Html.span [] [], Html.span [] [], Html.span [] [] ]
             ]
-        , div [ Html.Attributes.id "navbar-id", Html.Attributes.classList [ ( "navbar-menu", True ), ( "is-active animated slideInDown", model.menuOpen ) ] ]
+        , div [ Html.Attributes.id "navbar-id", Html.Attributes.classList [ ( "navbar-menu", True ), ( "is-active animated ", model.menuOpen ) ] ]
             [ div [ class "navbar-start" ]
                 [ a [ class "navbar-item" ] [ text "item uno" ]
                 , a [ class "navbar-item" ] [ text "item duo" ]
@@ -419,23 +419,50 @@ progressBar model =
 
 homeTileView : Home -> Html Msg
 homeTileView home =
+    let
+        imgUrl =
+            if String.contains "gumtree" home.link then
+                "/gumtree.png"
+
+            else if String.contains "otodom" home.link then
+                "/otodom.png"
+
+            else
+                "/olx.png"
+    in
     Html.article [ class "media" ]
         [ Html.figure [ class "media-left" ]
-            [ Html.p [ class "image is-64x64" ]
-                [ img [ src "https://bulma.io/images/placeholders/128x128.png" ] []
+            [ Html.p [ class "image is-64x64 " ]
+                [ img [ src imgUrl, class "is-marginless is-rounded" ] []
                 ]
             ]
         , div [ class "media-content" ]
-            [ Html.p [ class "is-size 3" ] [ text home.description ]
+            [ div [ class "content " ]
+                [ Html.p [ class "has-text-weight-light" ] [ text home.description ]
+                ]
+            , Html.nav [ class "level is-mobile" ]
+                [ div [ class "level-right" ]
+                    [ a [ class "level-item" ]
+                        [ Html.span [ class "icon is-small has-text-primary " ]
+                            [ i [ class "fas fa-share" ] []
+                            ]
+                        ]
+                    , a [ class "level-item" ]
+                        [ Html.span [ class "icon is-small has-text-primary" ]
+                            [ i [ class "fas fa-heart" ] []
+                            ]
+                        ]
+                    ]
+                ]
             ]
         ]
 
 
 pageView : Page Home -> Html Msg
 pageView page =
-    div [ class "container is-fluid" ]
+    div [ class "container is-fluid p-l-md" ]
         (List.map homeTileView page.content
-            ++ [ div [ class "pagination is-rounded", Html.Attributes.attribute "role" "navigation" ]
+            ++ [ div [ class "pagination is-rounded m-t-sm m-b-sm", Html.Attributes.attribute "role" "navigation" ]
                     [ Html.button [ class "pagination-previous", Html.Attributes.disabled (page.number == 0), onClick (GetHomes (page.number - 1)) ] [ text "Previous" ]
                     , Html.button [ class "pagination-next", Html.Attributes.style "margin-right" "15px", onClick (GetHomes (page.number + 1)) ] [ text "Next" ]
                     , Html.ul [ class "pagination-list" ] []
@@ -456,8 +483,8 @@ homesView model =
 
 footerView : Html Msg
 footerView =
-    Html.footer [ class "footer" ]
-        [ div [ class "content has-text-centered" ]
+    Html.footer [ class "footer p-b-md p-t-md" ]
+        [ div [ class "content has-text-centered " ]
             [ Html.p [] [ text "FubarSoft 2020" ]
             ]
         ]
