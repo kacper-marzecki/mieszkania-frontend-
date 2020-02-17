@@ -7,6 +7,9 @@ import Html.Events exposing (onClick, onInput)
 import Http
 import Json.Decode exposing (Decoder, field, string)
 import Json.Encode as E
+import Process
+import Task
+import Time
 
 
 
@@ -17,6 +20,9 @@ port copyToClipboard : E.Value -> Cmd msg
 
 
 port favouriteHome : E.Value -> Cmd msg
+
+
+port showError : (E.Value -> msg) -> Sub msg
 
 
 
@@ -78,6 +84,7 @@ type alias Model =
     , homesPage : Maybe (Page Home)
     , errors : List String
     , shareApiEnabled : Bool
+    , bottomNotification : Maybe String
     }
 
 
@@ -171,6 +178,7 @@ init flags =
       , errors = []
       , homesPage = Nothing
       , shareApiEnabled = flags.shareApiEnabled
+      , bottomNotification = Nothing
       }
     , Cmd.batch [ getCities ]
     )
@@ -193,6 +201,8 @@ type Msg
     | SetUpperPrice String
     | CopyToClipboard String
     | FavouriteHome Int
+    | ShowBottomNotification (Result Json.Decode.Error String)
+    | HideBottomNotification
     | Error String
 
 
@@ -314,6 +324,17 @@ update msg model =
 
         FavouriteHome id ->
             ( model, favouriteHome (E.int id) )
+
+        ShowBottomNotification resultNotification ->
+            case resultNotification of
+                Ok notification ->
+                    ( { model | bottomNotification = Just notification }, Task.perform (\a -> HideBottomNotification) (Process.sleep 3000) )
+
+                _ ->
+                    ( model, Cmd.none )
+
+        HideBottomNotification ->
+            ( { model | bottomNotification = Nothing }, Cmd.none )
 
         Error err ->
             ( { model | errors = [ err ] }, Cmd.none )
@@ -546,7 +567,12 @@ main =
         { view = view
         , init = init
         , update = update
-        , subscriptions = always Sub.none
+        , subscriptions =
+            always
+                (Sub.batch
+                    [ showError (\v -> ShowBottomNotification (Json.Decode.decodeValue Json.Decode.string v))
+                    ]
+                )
         }
 
 
