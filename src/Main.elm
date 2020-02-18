@@ -56,7 +56,7 @@ type CityId
 
 type Site
     = MainSite
-    | CitySite CityId
+    | FavouriteHomesSite
 
 
 type alias City =
@@ -88,6 +88,7 @@ type alias Model =
     , cities : List String
     , page : Int
     , homesPage : Maybe (Page Home)
+    , favouriteHomes : List Home
     , errors : List String
     , shareApiEnabled : Bool
     , bottomNotification : Maybe String
@@ -183,6 +184,7 @@ init flags =
       , page = 0
       , errors = []
       , homesPage = Nothing
+      , favouriteHomes = []
       , shareApiEnabled = flags.shareApiEnabled
       , bottomNotification = Nothing
       }
@@ -196,11 +198,14 @@ init flags =
 
 type Msg
     = NoOp
+    | OpenFavourites
+    | OpenMainSite
     | GetCities
     | GotCities (Result Http.Error (List String))
     | GetHomes Int
     | GotHomes (Result Http.Error (Page Home))
     | GetFavouriteHomes
+    | GotFavouriteHomes (Result Json.Decode.Error (List Home))
     | AddFavouriteHome Home
     | BurgerClicked
     | SettingsClicked
@@ -307,6 +312,16 @@ encodeHome home =
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
+        OpenMainSite ->
+            ({model | site = MainSite}, getCities)    
+        
+        OpenFavourites ->
+            let
+                closedMenu =
+                    toogleOpenMenu model
+            in
+            ( { closedMenu | site = FavouriteHomesSite }, getFavouriteHomes () )
+
         CopyToClipboard string ->
             ( model, copyToClipboard (E.string string) )
 
@@ -339,6 +354,9 @@ update msg model =
 
         GotHomes (Ok homePage) ->
             ( { model | homesPage = Just homePage }, Cmd.none )
+
+        GotFavouriteHomes (Ok homes) ->
+            ( { model | favouriteHomes = homes }, Cmd.none )
 
         AddFavouriteHome home ->
             ( model, favouriteHome (encodeHome home) )
@@ -446,10 +464,10 @@ menuBar : Model -> Html Msg
 menuBar model =
     nav [ class "navbar is-primary m-b-md" ]
         [ div [ class "navbar-brand" ]
-            [ Html.a [ class "navbar-item", Html.Attributes.href "#" ]
+            [ Html.a [ class "navbar-item", Html.Attributes.href "#", onClick OpenMainSite ]
                 [ i [ class "fas fa-home" ] []
                 ]
-            , a [ onClick SettingsClicked, class " navbar-item " ]
+            , a [ onClick SettingsClicked, class " navbar-item ", Html.Attributes.classList [ ( "hidden", not (model.site == MainSite) ) ] ]
                 [ i [ class "fas fa-cog" ] []
                 ]
             , a
@@ -462,7 +480,7 @@ menuBar model =
             ]
         , div [ Html.Attributes.id "navbar-id", Html.Attributes.classList [ ( "navbar-menu", True ), ( "is-active animated ", model.menuOpen ) ] ]
             [ div [ class "navbar-start" ]
-                [ a [ class "navbar-item" ] [ text "item uno" ]
+                [ a [ class "navbar-item", onClick OpenFavourites ] [ text "Saved favourites" ]
                 , a [ class "navbar-item" ] [ text "item duo" ]
                 , a [ class "navbar-item" ] [ text "item tre" ]
                 ]
@@ -569,15 +587,33 @@ footerView model =
         ]
 
 
+favouriteView : Model -> Html Msg
+favouriteView model =
+    div [ class "container is-fluid p-l-md" ]
+        (List.map (homeTileView model.shareApiEnabled)
+            model.favouriteHomes
+        )
+
+
 view : Model -> Html Msg
 view model =
     let
+        mainView =
+            case model.site of
+                MainSite ->
+                    div []
+                        [ settingsView model
+                        , homesView model
+                        ]
+
+                FavouriteHomesSite ->
+                    favouriteView model
+
         mainContent =
             div [ class "main-content" ]
                 [ menuBar model
                 , progressBar model
-                , settingsView model
-                , homesView model
+                , mainView
                 ]
     in
     div [ class "root" ]
@@ -600,6 +636,7 @@ main =
             always
                 (Sub.batch
                     [ showError (\v -> ShowBottomNotification (Json.Decode.decodeValue Json.Decode.string v))
+                    , returnFavouriteHomes (\v -> GotFavouriteHomes (Json.Decode.decodeValue homesDecoder v))
                     ]
                 )
         }

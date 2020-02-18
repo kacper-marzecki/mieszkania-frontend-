@@ -54,7 +54,7 @@ console.log(app.ports);
 app.ports.getFavouriteHomes.subscribe(() => {
   var objectStore = db.transaction("favouriteHomes").objectStore("favouriteHomes");
   objectStore.getAll().onsuccess = function (event) {
-    app.ports.getFavouriteHomes.send(event.target.result);
+    app.ports.returnFavouriteHomes.send(event.target.result);
   };
 });
 
