@@ -547,13 +547,13 @@ homeTileView isShareApiEnabled home =
 
 
 homesPageView : Page Home -> Bool -> Html Msg
-homesPageView page isShareApiEnabled =
+homesPageView page isShareApiEnabled=
     div [ class "container is-fluid p-l-md" ]
         (List.map (homeTileView isShareApiEnabled)
             page.content
             ++ [ div [ class "pagination is-rounded m-t-sm m-b-sm", Html.Attributes.attribute "role" "navigation" ]
                     [ Html.button [ class "pagination-previous", Html.Attributes.disabled (page.number == 0), onClick (GetHomes (page.number - 1)) ] [ text "Previous" ]
-                    , Html.button [ class "pagination-next", Html.Attributes.style "margin-right" "15px", onClick (GetHomes (page.number + 1)) ] [ text "Next" ]
+                    , Html.button [ class "pagination-next", Html.Attributes.style "margin-right" "15px",Html.Attributes.disabled (page.number + 1 == page.totalPages ), onClick (GetHomes (page.number + 1)) ] [ text "Next" ]
                     , Html.ul [ class "pagination-list" ] []
                     ]
                ]
