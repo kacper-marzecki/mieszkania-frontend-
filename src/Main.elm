@@ -25,6 +25,12 @@ port favouriteHome : E.Value -> Cmd msg
 port showError : (E.Value -> msg) -> Sub msg
 
 
+port getFavouriteHomes : () -> Cmd msg
+
+
+port returnFavouriteHomes : (E.Value -> msg) -> Sub msg
+
+
 
 -- UTILS
 
@@ -194,13 +200,14 @@ type Msg
     | GotCities (Result Http.Error (List String))
     | GetHomes Int
     | GotHomes (Result Http.Error (Page Home))
+    | GetFavouriteHomes
+    | AddFavouriteHome Home
     | BurgerClicked
     | SettingsClicked
     | SetCity String
     | SetLowerPrice String
     | SetUpperPrice String
     | CopyToClipboard String
-    | FavouriteHome Int
     | ShowBottomNotification (Result Json.Decode.Error String)
     | HideBottomNotification
     | Error String
@@ -286,6 +293,17 @@ setCity model city =
     { model | settings = newSettings }
 
 
+encodeHome : Home -> E.Value
+encodeHome home =
+    E.object
+        [ ( "id", E.int home.id )
+        , ( "added", E.string home.added )
+        , ( "link", E.string home.link )
+        , ( "description", E.string home.description )
+        , ( "price", E.int home.price )
+        ]
+
+
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
@@ -322,8 +340,8 @@ update msg model =
         GotHomes (Ok homePage) ->
             ( { model | homesPage = Just homePage }, Cmd.none )
 
-        FavouriteHome id ->
-            ( model, favouriteHome (E.int id) )
+        AddFavouriteHome home ->
+            ( model, favouriteHome (encodeHome home) )
 
         ShowBottomNotification resultNotification ->
             case resultNotification of
@@ -335,6 +353,9 @@ update msg model =
 
         HideBottomNotification ->
             ( { model | bottomNotification = Nothing }, Cmd.none )
+
+        GetFavouriteHomes ->
+            ( model, getFavouriteHomes () )
 
         Error err ->
             ( { model | errors = [ err ] }, Cmd.none )
@@ -496,7 +517,7 @@ homeTileView isShareApiEnabled home =
                             [ i [ class "fas fa-share" ] []
                             ]
                         ]
-                    , a [ class "level-item", onClick (FavouriteHome home.id) ]
+                    , a [ class "level-item", onClick (AddFavouriteHome home) ]
                         [ Html.span [ class "icon is-small has-text-primary", title "Favourite" ]
                             [ i [ class "fas fa-heart" ] []
                             ]
@@ -531,11 +552,19 @@ homesView model =
             div [] []
 
 
-footerView : Html Msg
-footerView =
+footerView : Model -> Html Msg
+footerView model =
     Html.footer [ class "footer p-b-md p-t-md" ]
         [ div [ class "content has-text-centered " ]
             [ Html.p [] [ text "FubarSoft 2020" ]
+            , case model.bottomNotification of
+                Just note ->
+                    div [ Html.Attributes.id "snackbar", class "show" ]
+                        [ text note
+                        ]
+
+                _ ->
+                    div [] []
             ]
         ]
 
@@ -553,7 +582,7 @@ view model =
     in
     div [ class "root" ]
         [ mainContent
-        , footerView
+        , footerView model
         ]
 
 
