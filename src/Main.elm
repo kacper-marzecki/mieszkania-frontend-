@@ -21,6 +21,9 @@ port copyToClipboard : E.Value -> Cmd msg
 port favouriteHome : E.Value -> Cmd msg
 
 
+port openLink : E.Value -> Cmd msg
+
+
 port removeFavouriteHome : E.Value -> Cmd msg
 
 
@@ -122,7 +125,7 @@ pageDecoder contentDecoder =
 getCities : Cmd Msg
 getCities =
     Http.get
-        { url = "http://localhost:8081/cities"
+        { url = "https://mieszkania-backend.herokuapp.com/cities"
         , expect = Http.expectJson GotCities citiesDecoder
         }
 
@@ -136,7 +139,7 @@ buildHomeUrl settings page =
         Just city ->
             let
                 url =
-                    "http://localhost:8081/home/"
+                    "https://mieszkania-backend.herokuapp.com/home/"
                         ++ city
                         ++ "?lowerPrice="
                         ++ String.fromInt settings.lowerPrice
@@ -200,6 +203,7 @@ init flags =
 
 type Msg
     = NoOp
+    | OpenLink String
     | OpenFavourites
     | OpenMainSite
     | GetCities
@@ -315,6 +319,9 @@ encodeHome home =
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
+        OpenLink link ->
+            ( model, openLink (E.string link) )
+
         OpenMainSite ->
             let
                 settings =
@@ -493,8 +500,6 @@ menuBar model =
         , div [ Html.Attributes.id "navbar-id", Html.Attributes.classList [ ( "navbar-menu", True ), ( "is-active animated ", model.menuOpen ) ] ]
             [ div [ class "navbar-start" ]
                 [ a [ class "navbar-item", onClick OpenFavourites ] [ text "Saved favourites" ]
-                , a [ class "navbar-item" ] [ text "item duo" ]
-                , a [ class "navbar-item" ] [ text "item tre" ]
                 ]
             , div [ class "navbar-end" ] []
             ]
@@ -561,7 +566,7 @@ homeTileView isShareApiEnabled favouriteElementOption home =
             ]
         , div [ class "media-content" ]
             [ div [ class "content " ]
-                [ Html.p [ class "has-text-weight-light" ] [ text home.description ]
+                [ a [ class "has-text-black has-text-weight-light", onClick (OpenLink home.link) ] [ text home.description ]
                 ]
             , Html.nav [ class "level is-mobile" ]
                 [ div [ class "level-right" ]

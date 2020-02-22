@@ -49,6 +49,10 @@ const getFavouriteHomes = () => {
   }
 };
 
+app.ports.openLink.subscribe((link) => {
+  window.open(link, "_blank");
+});
+
 app.ports.favouriteHome.subscribe((home) =>{
   var transaction = db.transaction(["favouriteHomes"], "readwrite");
   var objectStore = transaction.objectStore("favouriteHomes");
