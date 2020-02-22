@@ -363,8 +363,7 @@ update msg model =
         GetHomes pageNumber ->
             case buildHomeUrl model.settings pageNumber of
                 Just url ->
-                    Debug.log url
-                        ( { model | page = pageNumber }, getHomesCmd url )
+                    ( { model | page = pageNumber }, getHomesCmd url )
 
                 Nothing ->
                     update (Error "Invalid search parameters") model
