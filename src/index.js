@@ -40,23 +40,42 @@ request.onupgradeneeded = function (event) {
   objectStore.createIndex("id", "id", { unique: true });
 };
 
+const getFavouriteHomes = () => {
+  if(db) {
+    var objectStore = db.transaction("favouriteHomes").objectStore("favouriteHomes");
+    objectStore.getAll().onsuccess = function (event) {
+      app.ports.returnFavouriteHomes.send(event.target.result);
+    };
+  }
+};
+
 app.ports.favouriteHome.subscribe((home) =>{
   var transaction = db.transaction(["favouriteHomes"], "readwrite");
   var objectStore = transaction.objectStore("favouriteHomes");
-  console.log(home);
-  var request = objectStore.add(home);
-});
-
-// var request = db.transaction(["customers"], "readwrite")
-//   .objectStore("customers")
-//   .delete("444-44-4444");
-console.log(app.ports);
-app.ports.getFavouriteHomes.subscribe(() => {
-  var objectStore = db.transaction("favouriteHomes").objectStore("favouriteHomes");
-  objectStore.getAll().onsuccess = function (event) {
-    app.ports.returnFavouriteHomes.send(event.target.result);
+  let request = objectStore.add(home);
+  request.onsuccess = (event)=> {
+    app.ports.showError.send("Added to favourites");
+    getFavouriteHomes();
+  };
+  request.onerror = (event) => {
+    app.ports.showError.send("Already a favourite");
   };
 });
+
+app.ports.removeFavouriteHome.subscribe((home) => {
+  var transaction = db.transaction(["favouriteHomes"], "readwrite");
+  var objectStore = transaction.objectStore("favouriteHomes");
+  let request = objectStore.delete(home.id);
+  request.onsuccess = (event) => {
+    app.ports.showError.send("Removed");
+    getFavouriteHomes();
+  };
+  request.onerror = (event) => {
+    console.error("Attempted to remove non-favourite home");
+  };
+});
+
+app.ports.getFavouriteHomes.subscribe(getFavouriteHomes);
 
 const copyToClipboard = str => {
   const el = document.createElement('textarea'); 

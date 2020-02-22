@@ -9,7 +9,6 @@ import Json.Decode exposing (Decoder, field, string)
 import Json.Encode as E
 import Process
 import Task
-import Time
 
 
 
@@ -20,6 +19,9 @@ port copyToClipboard : E.Value -> Cmd msg
 
 
 port favouriteHome : E.Value -> Cmd msg
+
+
+port removeFavouriteHome : E.Value -> Cmd msg
 
 
 port showError : (E.Value -> msg) -> Sub msg
@@ -188,7 +190,7 @@ init flags =
       , shareApiEnabled = flags.shareApiEnabled
       , bottomNotification = Nothing
       }
-    , Cmd.batch [ getCities ]
+    , Cmd.batch [ getCities, getFavouriteHomes () ]
     )
 
 
@@ -207,6 +209,7 @@ type Msg
     | GetFavouriteHomes
     | GotFavouriteHomes (Result Json.Decode.Error (List Home))
     | AddFavouriteHome Home
+    | RemoveFavouriteHome Home
     | BurgerClicked
     | SettingsClicked
     | SetCity String
@@ -313,8 +316,15 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         OpenMainSite ->
-            ({model | site = MainSite}, getCities)    
-        
+            let
+                settings =
+                    model.settings
+
+                openSettings =
+                    { settings | open = True }
+            in
+            ( { model | settings = openSettings, menuOpen = False, site = MainSite }, getCities )
+
         OpenFavourites ->
             let
                 closedMenu =
@@ -356,10 +366,13 @@ update msg model =
             ( { model | homesPage = Just homePage }, Cmd.none )
 
         GotFavouriteHomes (Ok homes) ->
-            ( { model | favouriteHomes = homes }, Cmd.none )
+            ( { model | favouriteHomes = homes, loading = False }, Cmd.none )
 
         AddFavouriteHome home ->
-            ( model, favouriteHome (encodeHome home) )
+            ( { model | loading = True }, favouriteHome (encodeHome home) )
+
+        RemoveFavouriteHome home ->
+            ( { model | loading = True }, removeFavouriteHome (encodeHome home) )
 
         ShowBottomNotification resultNotification ->
             case resultNotification of
@@ -379,8 +392,7 @@ update msg model =
             ( { model | errors = [ err ] }, Cmd.none )
 
         _ ->
-            Debug.log "catch-all update"
-                ( model, Cmd.none )
+            ( model, Cmd.none )
 
 
 
@@ -498,8 +510,14 @@ progressBar model =
         div [] []
 
 
-homeTileView : Bool -> Home -> Html Msg
-homeTileView isShareApiEnabled home =
+type FavouriteOption
+    = FavouriteAdd
+    | FavouriteRemove
+    | FavouriteDisabled
+
+
+homeTileView : Bool -> FavouriteOption -> Home -> Html Msg
+homeTileView isShareApiEnabled favouriteElementOption home =
     let
         imgUrl =
             if String.contains "gumtree" home.link then
@@ -516,7 +534,26 @@ homeTileView isShareApiEnabled home =
                 ( "ShareApiEnabled", CopyToClipboard home.link )
 
             else
-                ( "ShareApiDisabled", CopyToClipboard home.link )
+                ( "Copy Link", CopyToClipboard home.link )
+
+        favouriteElement =
+            case favouriteElementOption of
+                FavouriteAdd ->
+                    a [ class "level-item", onClick (AddFavouriteHome home) ]
+                        [ Html.span [ class "icon is-small has-text-primary", title "Favourite" ]
+                            [ i [ class "fas fa-heart" ] []
+                            ]
+                        ]
+
+                FavouriteRemove ->
+                    a [ class "level-item", onClick (RemoveFavouriteHome home) ]
+                        [ Html.span [ class "icon is-small has-text-primary", title "Remove Favourite" ]
+                            [ i [ class "fas fa-trash" ] []
+                            ]
+                        ]
+
+                FavouriteDisabled ->
+                    a [] []
     in
     Html.article [ class "media" ]
         [ Html.figure [ class "media-left" ]
@@ -535,25 +572,37 @@ homeTileView isShareApiEnabled home =
                             [ i [ class "fas fa-share" ] []
                             ]
                         ]
-                    , a [ class "level-item", onClick (AddFavouriteHome home) ]
-                        [ Html.span [ class "icon is-small has-text-primary", title "Favourite" ]
-                            [ i [ class "fas fa-heart" ] []
-                            ]
-                        ]
+                    , favouriteElement
                     ]
                 ]
             ]
         ]
 
 
-homesPageView : Page Home -> Bool -> Html Msg
-homesPageView page isShareApiEnabled=
+homesPageView : Page Home -> Bool -> List Home -> Html Msg
+homesPageView page isShareApiEnabled favouriteHomes =
+    let
+        homeInFavourites =
+            \homeId -> \favHome -> favHome.id == homeId
+
+        favouriteAction =
+            \home ->
+                -- List.any (homeInFavourites home.id) favouriteHomes
+                if List.member home favouriteHomes then
+                    FavouriteRemove
+
+                else
+                    FavouriteAdd
+
+        homes =
+            List.map (\home -> homeTileView isShareApiEnabled (favouriteAction home) home)
+                page.content
+    in
     div [ class "container is-fluid p-l-md" ]
-        (List.map (homeTileView isShareApiEnabled)
-            page.content
+        (homes
             ++ [ div [ class "pagination is-rounded m-t-sm m-b-sm", Html.Attributes.attribute "role" "navigation" ]
                     [ Html.button [ class "pagination-previous", Html.Attributes.disabled (page.number == 0), onClick (GetHomes (page.number - 1)) ] [ text "Previous" ]
-                    , Html.button [ class "pagination-next", Html.Attributes.style "margin-right" "15px",Html.Attributes.disabled (page.number + 1 == page.totalPages ), onClick (GetHomes (page.number + 1)) ] [ text "Next" ]
+                    , Html.button [ class "pagination-next", Html.Attributes.style "margin-right" "15px", Html.Attributes.disabled (page.number + 1 == page.totalPages), onClick (GetHomes (page.number + 1)) ] [ text "Next" ]
                     , Html.ul [ class "pagination-list" ] []
                     ]
                ]
@@ -564,7 +613,7 @@ homesView : Model -> Html Msg
 homesView model =
     case model.homesPage of
         Just page ->
-            homesPageView page model.shareApiEnabled
+            homesPageView page model.shareApiEnabled model.favouriteHomes
 
         Nothing ->
             div [] []
@@ -590,7 +639,7 @@ footerView model =
 favouriteView : Model -> Html Msg
 favouriteView model =
     div [ class "container is-fluid p-l-md" ]
-        (List.map (homeTileView model.shareApiEnabled)
+        (List.map (homeTileView model.shareApiEnabled FavouriteRemove)
             model.favouriteHomes
         )
 
