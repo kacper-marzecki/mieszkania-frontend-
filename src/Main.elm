@@ -540,16 +540,14 @@ homeTileView isShareApiEnabled favouriteElementOption home =
             case favouriteElementOption of
                 FavouriteAdd ->
                     a [ class "level-item", onClick (AddFavouriteHome home) ]
-                        [ Html.span [ class "icon is-small has-text-primary", title "Favourite" ]
-                            [ i [ class "fas fa-heart" ] []
-                            ]
+                        [ Html.span [ class "icon is-small has-text-primary fas fa-heart", title "Favourite" ]
+                            []
                         ]
 
                 FavouriteRemove ->
                     a [ class "level-item", onClick (RemoveFavouriteHome home) ]
-                        [ Html.span [ class "icon is-small has-text-primary", title "Remove Favourite" ]
-                            [ i [ class "fas fa-trash" ] []
-                            ]
+                        [ Html.span [ class "icon is-small has-text-primary fas fa-trash", title "Remove Favourite" ]
+                            []
                         ]
 
                 FavouriteDisabled ->
