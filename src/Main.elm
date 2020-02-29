@@ -125,7 +125,7 @@ pageDecoder contentDecoder =
 getCities : Cmd Msg
 getCities =
     Http.get
-        { url = "http://209.97.184.236:8080/cities"
+        { url = "https://209.97.184.236:8080/cities"
         , expect = Http.expectJson GotCities citiesDecoder
         }
 
@@ -139,7 +139,7 @@ buildHomeUrl settings page =
         Just city ->
             let
                 url =
-                    "http://209.97.184.236:8080/home/"
+                    "https://209.97.184.236:8080/home/"
                         ++ city
                         ++ "?lowerPrice="
                         ++ String.fromInt settings.lowerPrice
