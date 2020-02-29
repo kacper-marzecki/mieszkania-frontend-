@@ -125,7 +125,7 @@ pageDecoder contentDecoder =
 getCities : Cmd Msg
 getCities =
     Http.get
-        { url = "https://mieszkania-backend.herokuapp.com/cities"
+        { url = "http://209.97.184.236:8080/cities"
         , expect = Http.expectJson GotCities citiesDecoder
         }
 
@@ -139,7 +139,7 @@ buildHomeUrl settings page =
         Just city ->
             let
                 url =
-                    "https://mieszkania-backend.herokuapp.com/home/"
+                    "http://209.97.184.236:8080/home/"
                         ++ city
                         ++ "?lowerPrice="
                         ++ String.fromInt settings.lowerPrice
