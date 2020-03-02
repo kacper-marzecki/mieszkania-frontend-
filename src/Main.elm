@@ -1,6 +1,8 @@
 port module Main exposing (..)
 
 import Browser
+import Cities exposing (City, citiesDecoder)
+import Home exposing (Home)
 import Html exposing (Html, a, div, h1, i, img, input, nav, text)
 import Html.Attributes exposing (attribute, class, src, title)
 import Html.Events exposing (onClick, onInput)
@@ -9,6 +11,7 @@ import Json.Decode exposing (Decoder, field, string)
 import Json.Encode as E
 import Process
 import Task
+import Utils exposing (isNothing)
 
 
 
@@ -36,36 +39,9 @@ port getFavouriteHomes : () -> Cmd msg
 port returnFavouriteHomes : (E.Value -> msg) -> Sub msg
 
 
-
--- UTILS
-
-
-isNothing : Maybe a -> Bool
-isNothing m =
-    case m of
-        Just _ ->
-            False
-
-        Nothing ->
-            True
-
-
-isJust : Maybe a -> Bool
-isJust m =
-    not (isNothing m)
-
-
-type CityId
-    = Int
-
-
 type Site
     = MainSite
     | FavouriteHomesSite
-
-
-type alias City =
-    String
 
 
 type alias Settings =
@@ -73,15 +49,6 @@ type alias Settings =
     , lowerPrice : Int
     , upperPrice : Int
     , open : Bool
-    }
-
-
-type alias Home =
-    { id : Int
-    , added : String
-    , link : String
-    , description : String
-    , price : Int
     }
 
 
@@ -96,13 +63,9 @@ type alias Model =
     , favouriteHomes : List Home
     , errors : List String
     , shareApiEnabled : Bool
+    , backendApi : String
     , bottomNotification : Maybe String
     }
-
-
-citiesDecoder : Decoder (List String)
-citiesDecoder =
-    Json.Decode.list string
 
 
 type alias Page a =
@@ -122,29 +85,30 @@ pageDecoder contentDecoder =
         (Json.Decode.field "number" Json.Decode.int)
 
 
-getCities : Cmd Msg
-getCities =
+getCities : Model -> Cmd Msg
+getCities model =
     Http.get
-        { url = "http://209.97.184.236:8080/cities"
+        { url = model.backendApi ++ "/cities"
         , expect = Http.expectJson GotCities citiesDecoder
         }
 
 
-buildHomeUrl : Settings -> Int -> Maybe String
-buildHomeUrl settings page =
-    case settings.city of
+buildHomeUrl : Model -> Int -> Maybe String
+buildHomeUrl model page =
+    case model.settings.city of
         Nothing ->
             Nothing
 
         Just city ->
             let
                 url =
-                    "http://209.97.184.236:8080/home/"
+                    model.backendApi
+                        ++ "/home/"
                         ++ city
                         ++ "?lowerPrice="
-                        ++ String.fromInt settings.lowerPrice
+                        ++ String.fromInt model.settings.lowerPrice
                         ++ "&upperPrice="
-                        ++ String.fromInt settings.upperPrice
+                        ++ String.fromInt model.settings.upperPrice
                         ++ "&page="
                         ++ String.fromInt page
             in
@@ -174,26 +138,31 @@ getHomesCmd url =
         }
 
 
-init : { shareApiEnabled : Bool } -> ( Model, Cmd Msg )
+init : ProgramFlags -> ( Model, Cmd Msg )
 init flags =
-    ( { site = MainSite
-      , menuOpen = False
-      , loading = True
-      , settings =
-            { city = Nothing
-            , lowerPrice = 1000
-            , upperPrice = 10000
-            , open = False
+    let
+        model =
+            { site = MainSite
+            , menuOpen = False
+            , loading = True
+            , settings =
+                { city = Nothing
+                , lowerPrice = 1000
+                , upperPrice = 10000
+                , open = False
+                }
+            , cities = []
+            , page = 0
+            , errors = []
+            , homesPage = Nothing
+            , favouriteHomes = []
+            , shareApiEnabled = flags.shareApiEnabled
+            , backendApi = flags.backendApi
+            , bottomNotification = Nothing
             }
-      , cities = []
-      , page = 0
-      , errors = []
-      , homesPage = Nothing
-      , favouriteHomes = []
-      , shareApiEnabled = flags.shareApiEnabled
-      , bottomNotification = Nothing
-      }
-    , Cmd.batch [ getCities, getFavouriteHomes () ]
+    in
+    ( model
+    , Cmd.batch [ getCities model, getFavouriteHomes () ]
     )
 
 
@@ -330,7 +299,7 @@ update msg model =
                 openSettings =
                     { settings | open = True }
             in
-            ( { model | settings = openSettings, menuOpen = False, site = MainSite }, getCities )
+            ( { model | settings = openSettings, menuOpen = False, site = MainSite }, getCities model )
 
         OpenFavourites ->
             let
@@ -361,7 +330,7 @@ update msg model =
             ( setLowerPrice model price, Cmd.none )
 
         GetHomes pageNumber ->
-            case buildHomeUrl model.settings pageNumber of
+            case buildHomeUrl model pageNumber of
                 Just url ->
                     ( { model | page = pageNumber }, getHomesCmd url )
 
@@ -540,7 +509,7 @@ homeTileView isShareApiEnabled favouriteElementOption home =
             else
                 ( "Copy Link", CopyToClipboard home.link )
 
-        favouriteElement =
+        favouriteElementIcon =
             case favouriteElementOption of
                 FavouriteAdd ->
                     a [ class "level-item", onClick (AddFavouriteHome home) ]
@@ -563,7 +532,7 @@ homeTileView isShareApiEnabled favouriteElementOption home =
                 [ img [ src imgUrl, class "is-marginless is-rounded" ] []
                 ]
             ]
-        , div [ class "media-content" ]
+        , div [ class "media-content", Html.Attributes.style "overflow-x" "unset" ]
             [ div [ class "content " ]
                 [ a [ class "has-text-black has-text-weight-light", onClick (OpenLink home.link) ] [ text home.description ]
                 ]
@@ -574,7 +543,7 @@ homeTileView isShareApiEnabled favouriteElementOption home =
                             [ i [ class "fas fa-share" ] []
                             ]
                         ]
-                    , favouriteElement
+                    , favouriteElementIcon
                     ]
                 ]
             ]
@@ -584,9 +553,6 @@ homeTileView isShareApiEnabled favouriteElementOption home =
 homesPageView : Page Home -> Bool -> List Home -> Html Msg
 homesPageView page isShareApiEnabled favouriteHomes =
     let
-        homeInFavourites =
-            \homeId -> \favHome -> favHome.id == homeId
-
         favouriteAction =
             \home ->
                 -- List.any (homeInFavourites home.id) favouriteHomes
@@ -677,7 +643,13 @@ view model =
 ---- PROGRAM ----
 
 
-main : Program { shareApiEnabled : Bool } Model Msg
+type alias ProgramFlags =
+    { shareApiEnabled : Bool
+    , backendApi : String
+    }
+
+
+main : Program ProgramFlags Model Msg
 main =
     Browser.element
         { view = view
