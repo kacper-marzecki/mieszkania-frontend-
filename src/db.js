@@ -28,9 +28,13 @@ const favouriteHome = home => {
 }
 
 const getFavouriteHomes = () => {
-    return db.transaction("favouriteHomes")
-    .objectStore("favouriteHomes")
-    .getAll();
+    if(db) {
+        return db.transaction("favouriteHomes")
+            .objectStore("favouriteHomes")
+            .getAll();}
+    else {
+        return [];
+    }
 };
 
 const removeFavouriteHome = home => {
