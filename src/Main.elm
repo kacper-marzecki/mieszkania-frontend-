@@ -433,7 +433,7 @@ settingsView model =
                                 ]
                             , div [ class "field " ]
                                 [ div [ class "control" ]
-                                    [ Html.button [ class "button is-primary", onClick (GetHomes 1), Html.Attributes.disabled (isNothing model.settings.city) ] [ text "Search" ]
+                                    [ Html.button [ class "button is-primary", onClick (GetHomes 0), Html.Attributes.disabled (isNothing model.settings.city) ] [ text "Search" ]
                                     ]
                                 ]
                             ]
@@ -555,7 +555,6 @@ homesPageView page isShareApiEnabled favouriteHomes =
     let
         favouriteAction =
             \home ->
-                -- List.any (homeInFavourites home.id) favouriteHomes
                 if List.member home favouriteHomes then
                     FavouriteRemove
 
@@ -566,12 +565,16 @@ homesPageView page isShareApiEnabled favouriteHomes =
             List.map (\home -> homeTileView isShareApiEnabled (favouriteAction home) home)
                 page.content
     in
-    div [ class "container is-fluid p-l-md" ]
+    div [ class "container is-fluid p-l-md", Html.Attributes.style "flex-direction" "column-reverse" ]
         (homes
-            ++ [ div [ class "pagination is-rounded m-t-sm m-b-sm", Html.Attributes.attribute "role" "navigation" ]
+            ++ [ div [ class "pagination is-centered is-rounded m-t-sm m-b-sm", Html.Attributes.attribute "role" "navigation" ]
                     [ Html.button [ class "pagination-previous", Html.Attributes.disabled (page.number == 0), onClick (GetHomes (page.number - 1)) ] [ text "Previous" ]
+                    , Html.ul [ class "pagination-list" ]
+                        [ Html.li []
+                            [ a [ class "pagination-link" ] [ text (String.fromInt (page.number + 1)) ]
+                            ]
+                        ]
                     , Html.button [ class "pagination-next", Html.Attributes.style "margin-right" "15px", Html.Attributes.disabled (page.number + 1 == page.totalPages), onClick (GetHomes (page.number + 1)) ] [ text "Next" ]
-                    , Html.ul [ class "pagination-list" ] []
                     ]
                ]
         )
