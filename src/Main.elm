@@ -526,7 +526,7 @@ homeTileView isShareApiEnabled favouriteElementOption home =
 
                 FavouriteRemove ->
                     a [ class "level-item", onClick (RemoveFavouriteHome home) ]
-                        [ Html.span [ class "has-text-success icon  fas fa-heart", title "Remove Favourite" ]
+                        [ Html.span [ class "has-text-danger icon  fas fa-heart", title "Remove Favourite" ]
                             []
                         ]
 
