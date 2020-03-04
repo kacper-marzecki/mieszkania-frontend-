@@ -520,13 +520,13 @@ homeTileView isShareApiEnabled favouriteElementOption home =
             case favouriteElementOption of
                 FavouriteAdd ->
                     a [ class "level-item", onClick (AddFavouriteHome home) ]
-                        [ Html.span [ class "icon is-small has-text-primary fas fa-heart", title "Favourite" ]
+                        [ Html.span [ class "icon has-text-grey-lighter fas fa-heart", title "Favourite" ]
                             []
                         ]
 
                 FavouriteRemove ->
                     a [ class "level-item", onClick (RemoveFavouriteHome home) ]
-                        [ Html.span [ class "icon is-small has-text-primary fas fa-trash", title "Remove Favourite" ]
+                        [ Html.span [ class "has-text-success icon  fas fa-heart", title "Remove Favourite" ]
                             []
                         ]
 
@@ -544,10 +544,18 @@ homeTileView isShareApiEnabled favouriteElementOption home =
                 [ a [ class "has-text-black has-text-weight-light", onClick (OpenLink home.link) ] [ text home.description ]
                 ]
             , Html.nav [ class "level is-mobile" ]
-                [ div [ class "level-right" ]
+                [ div [ class "level-left" ]
+                    [ div [ class "level-item", onClick shareAction ]
+                        [ Html.span [ class "has-text-primary" ]
+                            [ text (String.fromInt home.price ++ " PLN")
+                            ]
+                        ]
+                    ]
+                , div
+                    [ class "level-right" ]
                     [ a [ class "level-item", onClick shareAction ]
-                        [ Html.span [ class "icon is-small has-text-primary", title shareTitle ]
-                            [ i [ class "fas fa-share" ] []
+                        [ Html.span [ class "icon has-text-primary", title shareTitle ]
+                            [ i [ class "fas fa-share-alt" ] []
                             ]
                         ]
                     , favouriteElementIcon
