@@ -39,6 +39,9 @@ port getFavouriteHomes : () -> Cmd msg
 port returnFavouriteHomes : (E.Value -> msg) -> Sub msg
 
 
+port scrollToTheTop : () -> Cmd msg
+
+
 type Site
     = MainSite
     | FavouriteHomesSite
@@ -332,7 +335,7 @@ update msg model =
         GetHomes pageNumber ->
             case buildHomeUrl model pageNumber of
                 Just url ->
-                    ( { model | page = pageNumber }, getHomesCmd url )
+                    ( { model | page = pageNumber }, Cmd.batch [ getHomesCmd url, scrollToTheTop () ] )
 
                 Nothing ->
                     update (Error "Invalid search parameters") model

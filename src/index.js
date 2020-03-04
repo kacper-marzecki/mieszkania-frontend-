@@ -75,6 +75,9 @@ app.ports.openLink.subscribe((link) => {
   window.open(link, "_blank");
 });
 
+app.ports.scrollToTheTop.subscribe(() => {
+    window.scrollTo(0, 0);
+})
 
 
 // If you want your app to work offline and load faster, you can change
