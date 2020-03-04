@@ -38,30 +38,30 @@ const copyToClipboard = string => {
   }
 };
 
-const showError = string => {
-  app.ports.showError.send(string);
+const showSnackbar = string => {
+  app.ports.showSnackbar.send(string);
 }
 
 app.ports.copyToClipboard.subscribe(function (data) {
   copyToClipboard(data);
-  showError("Copied to clipboard");
+  showSnackbar("Copied to clipboard");
 });
 
 app.ports.favouriteHome.subscribe((home) =>{
   let request = db.favouriteHome(home);
   request.onsuccess = (event)=> {
-    app.ports.showError.send("Added to favourites");
+    showSnackbar("Added to favourites");
     getFavouriteHomes();
   };
   request.onerror = (event) => {
-    app.ports.showError.send("Already a favourite");
+    showSnackbar("Already a favourite");
   };
 });
 
 app.ports.removeFavouriteHome.subscribe((home) => {
   let request = db.removeFavouriteHome(home)
   request.onsuccess = (event) => {
-    showError("Removed");
+    showSnackbar("Removed");
     getFavouriteHomes();
   };
   request.onerror = (event) => {

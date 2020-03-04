@@ -30,7 +30,7 @@ port openLink : E.Value -> Cmd msg
 port removeFavouriteHome : E.Value -> Cmd msg
 
 
-port showError : (E.Value -> msg) -> Sub msg
+port showSnackbar : (E.Value -> msg) -> Sub msg
 
 
 port getFavouriteHomes : () -> Cmd msg
@@ -347,10 +347,10 @@ update msg model =
             ( { model | favouriteHomes = homes, loading = False }, Cmd.none )
 
         AddFavouriteHome home ->
-            ( { model | loading = True }, favouriteHome (encodeHome home) )
+            ( model, favouriteHome (encodeHome home) )
 
         RemoveFavouriteHome home ->
-            ( { model | loading = True }, removeFavouriteHome (encodeHome home) )
+            ( model, removeFavouriteHome (encodeHome home) )
 
         ShowBottomNotification resultNotification ->
             case resultNotification of
@@ -676,7 +676,7 @@ main =
         , subscriptions =
             always
                 (Sub.batch
-                    [ showError (\v -> ShowBottomNotification (Json.Decode.decodeValue Json.Decode.string v))
+                    [ showSnackbar (\v -> ShowBottomNotification (Json.Decode.decodeValue Json.Decode.string v))
                     , returnFavouriteHomes (\v -> GotFavouriteHomes (Json.Decode.decodeValue homesDecoder v))
                     ]
                 )
